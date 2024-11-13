@@ -33,7 +33,7 @@ public class ExcelHelper
 
                 string? cnpj = row.GetCell(cnpjColumnIndex)?.ToString()?.Trim();
                 string? competencia = row.GetCell(competenciaColumnIndex)?.ToString()?.Trim();
-                string? salario = FormatSalary(row.GetCell(salarioColumnIndex)?.ToString());
+                string? salario = FormatarValorEmReais(row.GetCell(salarioColumnIndex)?.ToString());
 
                 if (IsMatch(cnpj: cnpj, competencia: competencia, salario: salario, nfseData: nfseData))
                 {
@@ -61,16 +61,16 @@ public class ExcelHelper
 
     private static bool IsMatch(string cnpj, string competencia, string salario, NFSe nfseData)
     {
-        string? formattedServiceValue = FormatSalary(nfseData.ValorServico);
-        string? formattedCompetencyDate = FormatCompetencyDate(nfseData.DataCompetencia);
+        string? valorServicoFormatado = FormatarValorEmReais(nfseData.ValorServico);
+        string? dataCompetenciaFormatada = FormatarDataCompetencia(nfseData.DataCompetencia);
 
-        Console.WriteLine($"CNPJ no Excel: {cnpj}, CNPJ Procurado: {nfseData.Prestador.Cnpj}");
-        Console.WriteLine($"Competência no Excel: {competencia}, Competência Procurada: {formattedCompetencyDate}");
-        Console.WriteLine($"Salário no Excel: {salario}, Salário Procurado: {formattedServiceValue}");
+        Console.WriteLine($"CNPJ no Excel: '{cnpj}', CNPJ Procurado: '{nfseData.Prestador.Cnpj}'");
+        Console.WriteLine($"Competência no Excel: '{competencia}', Competência Procurada: '{dataCompetenciaFormatada}'");
+        Console.WriteLine($"Salário no Excel: '{salario}', Salário Procurado: '{valorServicoFormatado}'");
 
         return cnpj?.Trim() == nfseData.Prestador.Cnpj.Trim() &&
-               competencia?.Trim().Equals(formattedCompetencyDate, StringComparison.OrdinalIgnoreCase) == true &&
-               salario == formattedServiceValue;
+               competencia?.Trim().Equals(dataCompetenciaFormatada, StringComparison.OrdinalIgnoreCase) == true &&
+               salario == valorServicoFormatado;
     }
 
     private static int GetColumnIndexByTitle(ISheet sheet, string title)
@@ -93,19 +93,26 @@ public class ExcelHelper
         throw new Exception($"Título '{title}' não encontrado na planilha.");
     }
 
-    private static string FormatCompetencyDate(string competencyDate)
+    private static string FormatarDataCompetencia(string dataCompetencia)
     {
-        return DateTime.ParseExact(competencyDate, "dd/MM/yyyy", CultureInfo.InvariantCulture)
+        return DateTime.ParseExact(dataCompetencia, "dd/MM/yyyy", CultureInfo.InvariantCulture)
                         .ToString("dd-MMM-yyyy", new CultureInfo("en-US"));
     }
 
-    private static string FormatSalary(string salary)
+    private static string FormatarValorEmReais(string valor)
     {
-        if (decimal.TryParse(salary, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal parsedSalary))
+        decimal valorConvertido;
+
+        bool conversaoPtBr = decimal.TryParse(valor, NumberStyles.Any, new CultureInfo("pt-BR"), out valorConvertido);
+
+        bool conversaoInvariante = !conversaoPtBr && decimal.TryParse(valor, NumberStyles.Any, CultureInfo.InvariantCulture, out valorConvertido);
+
+        if (conversaoPtBr || conversaoInvariante)
         {
-            return parsedSalary.ToString("N2", new CultureInfo("pt-BR")); // Exemplo: "2.500,00"
+            return valorConvertido.ToString("N2", new CultureInfo("pt-BR")); // Exemplo: 2.500,00
         }
+
         Console.WriteLine("Erro ao converter o valor do salário para decimal.");
-        return salary;
+        return valor;
     }
 }
