@@ -1,7 +1,7 @@
-﻿using FinanceiroScript.Dominio;
+﻿using FicanceiroScript.Dominio.Interfaces.Helpers;
+using FinanceiroScript.Dominio;
 using FinanceiroScript.Dominio.Interfaces.Helpers;
 using FinanceiroScript.Dominio.Interfaces.Servicos;
-using FinanceiroScript.Servicos;
 using Microsoft.Extensions.Logging;
 using NLog;
 
@@ -9,12 +9,14 @@ public class NFSeVerificarValidadeNotasServico : INFSeVerificarValidadeNotasServ
 {
     private readonly INFSeServico _nfseServico;
     private readonly IDiretorioHelper _diretorioHelper;
+    private readonly IExcelHelper _excelHelper;
     private readonly ILogger<NFSeVerificarValidadeNotasServico> _logger;
 
-    public NFSeVerificarValidadeNotasServico(INFSeServico nfseServico, IDiretorioHelper diretorioHelper, ILogger<NFSeVerificarValidadeNotasServico> logger)
+    public NFSeVerificarValidadeNotasServico(INFSeServico nfseServico, IDiretorioHelper diretorioHelper, IExcelHelper excelHelper, ILogger<NFSeVerificarValidadeNotasServico> logger)
     {
         _nfseServico = nfseServico;
         _diretorioHelper = diretorioHelper;
+        _excelHelper = excelHelper;
         _logger = logger;
     }
 
@@ -42,7 +44,7 @@ public class NFSeVerificarValidadeNotasServico : INFSeVerificarValidadeNotasServ
                 using var pdfStream = new FileStream(pdf, FileMode.Open, FileAccess.Read);
                 NFSe nfseData = _nfseServico.ExtrairDadosNFSeDoPdf(pdfStream);
 
-                bool isValid = ExcelHelper.IsNFSeValid(nfseData, caminhoArquivoExcel);
+                bool isValid = _excelHelper.VerificarSeDadosNFSeBatemComExcel(nfseData, caminhoArquivoExcel);
                 string dirDestino = isValid ? dirNotasValidas : dirNotasErros;
 
                 string novoCaminhoArquivoPdf = _nfseServico.RenomearEMoverNFSePdf(pdf, nfseData, dirDestino);

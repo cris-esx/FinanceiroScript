@@ -1,4 +1,5 @@
-﻿using FinanceiroScript.Dominio.Interfaces.Helpers;
+﻿using FicanceiroScript.Dominio.Interfaces.Helpers;
+using FinanceiroScript.Dominio.Interfaces.Helpers;
 using FinanceiroScript.Dominio.Interfaces.Servicos;
 using FinanceiroScript.Servicos;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +20,8 @@ namespace FinanceiroScript
                     services.AddScoped<INFSeServico, NFSeServico>();
                     services.AddScoped<INFSeVerificarValidadeNotasServico, NFSeVerificarValidadeNotasServico>();
                     services.AddScoped<IDiretorioHelper, DiretorioHelper>();
-                    services.AddScoped<LogHelper>();
+                    services.AddScoped<IExcelHelper, ExcelHelper>();
+                    services.AddScoped<ILogHelper, LogHelper>();
                 })
                 .ConfigureLogging(logging =>
                 {
@@ -29,8 +31,9 @@ namespace FinanceiroScript
                 .Build();
 
             var directoryHelper = host.Services.GetRequiredService<IDiretorioHelper>();
-            var logHelper = host.Services.GetRequiredService<LogHelper>();
-            logHelper.LogMessage("Programa iniciado.");
+            var logHelper = host.Services.GetRequiredService<ILogHelper>();
+            var _logger = LogManager.GetCurrentClassLogger();
+            _logger.Info("Programa iniciado.");
 
             try
             {
@@ -39,7 +42,7 @@ namespace FinanceiroScript
             }
             catch (Exception ex)
             {
-                logHelper.LogError("Ocorreu um erro", ex);
+                _logger.Error($"Ocorreu um erro. {ex.Message}", ex);
             }
             finally
             {
