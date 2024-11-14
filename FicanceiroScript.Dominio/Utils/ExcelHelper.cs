@@ -6,6 +6,7 @@ using FinanceiroScript.Dominio;
 
 public class ExcelHelper
 {
+
     public static bool IsNFSeValid(NFSe nfseData, string excelFilePath)
     {
         if (nfseData == null) return false;
@@ -22,11 +23,11 @@ public class ExcelHelper
 
             var sheet = workbook.GetSheetAt(0) ?? throw new Exception("Não foi possível acessar a planilha no arquivo Excel.");
 
-            int cnpjColumnIndex = GetColumnIndexByTitle(sheet, "CNPJ");
-            int competenciaColumnIndex = GetColumnIndexByTitle(sheet, "Competência");
-            int salarioColumnIndex = GetColumnIndexByTitle(sheet, "Salário");
+            int cnpjColumnIndex = ObterIndexDaColunaPorTitulo(sheet, "CNPJ");
+            int competenciaColumnIndex = ObterIndexDaColunaPorTitulo(sheet, "Competência");
+            int salarioColumnIndex = ObterIndexDaColunaPorTitulo(sheet, "Salário");
 
-            for (int rowIndex = 1; rowIndex <= sheet.LastRowNum; rowIndex++) // Começar da segunda linha (index 1)
+            for (int rowIndex = 1; rowIndex <= sheet.LastRowNum; rowIndex++)
             {
                 var row = sheet.GetRow(rowIndex);
                 if (row == null) continue;
@@ -73,7 +74,7 @@ public class ExcelHelper
                salario == valorServicoFormatado;
     }
 
-    private static int GetColumnIndexByTitle(ISheet sheet, string title)
+    private static int ObterIndexDaColunaPorTitulo(ISheet sheet, string title)
     {
         IRow headerRow = sheet.GetRow(0);
         if (headerRow == null)
