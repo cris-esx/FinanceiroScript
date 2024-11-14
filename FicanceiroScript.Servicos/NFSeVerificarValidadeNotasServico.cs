@@ -8,13 +8,13 @@ using NLog;
 public class NFSeVerificarValidadeNotasServico : INFSeVerificarValidadeNotasServico
 {
     private readonly INFSeServico _nfseServico;
-    private readonly IDiretorioHelper _directoryHelper;
+    private readonly IDiretorioHelper _diretorioHelper;
     private readonly ILogger<NFSeVerificarValidadeNotasServico> _logger;
 
-    public NFSeVerificarValidadeNotasServico(INFSeServico nfseServico, IDiretorioHelper directoryHelper, ILogger<NFSeVerificarValidadeNotasServico> logger)
+    public NFSeVerificarValidadeNotasServico(INFSeServico nfseServico, IDiretorioHelper diretorioHelper, ILogger<NFSeVerificarValidadeNotasServico> logger)
     {
         _nfseServico = nfseServico;
-        _directoryHelper = directoryHelper;
+        _diretorioHelper = diretorioHelper;
         _logger = logger;
     }
 
@@ -22,41 +22,41 @@ public class NFSeVerificarValidadeNotasServico : INFSeVerificarValidadeNotasServ
     {
         _logger.LogInformation("Função verificar validade das notas fiscais iniciada.");
 
-        string appRootPath = _directoryHelper.GetAppRootPath();
-        string notasDirPath = Path.Combine(appRootPath, "Notas");
-        string notasValidasDirPath = _directoryHelper.GetValidosDirectory();
-        string notasErrosDirPath = _directoryHelper.GetErrosDirectory();
-        string[] pdfFiles = _nfseServico.ObterTodasNFSes(notasDirPath);
-        string excelFilePath = Path.Combine(appRootPath, "TesteExcelDocs", "Folha_Teste_18.10.24.xlsx");
+        string caminhoRaizApp = _diretorioHelper.ObterCaminhoRaizAplicacao();
+        string dirNotas = Path.Combine(caminhoRaizApp, "Notas");
+        string dirNotasValidas = _diretorioHelper.ObterDiretorioValidos();
+        string dirNotasErros = _diretorioHelper.ObterDiretorioErros();
+        string[] arquivosPdfs = _nfseServico.ObterTodasNFSes(dirNotas);
+        string caminhoArquivoExcel = Path.Combine(caminhoRaizApp, "TesteExcelDocs", "Folha_Teste_18.10.24.xlsx");
 
-        if (pdfFiles == null || pdfFiles.Length < 1)
+        if (arquivosPdfs == null || arquivosPdfs.Length < 1)
         {
             _logger.LogError("Não foram encontrados pdfs.");
             return;
         }
 
-        foreach (string pdfFile in pdfFiles)
+        foreach (string pdf in arquivosPdfs)
         {
             try
             {
-                using var pdfStream = new FileStream(pdfFile, FileMode.Open, FileAccess.Read);
+                using var pdfStream = new FileStream(pdf, FileMode.Open, FileAccess.Read);
                 NFSe nfseData = _nfseServico.ExtrairDadosNFSeDoPdf(pdfStream);
 
-                bool isValid = ExcelHelper.IsNFSeValid(nfseData, excelFilePath);
-                string dirDestino = isValid ? notasValidasDirPath : notasErrosDirPath;
+                bool isValid = ExcelHelper.IsNFSeValid(nfseData, caminhoArquivoExcel);
+                string dirDestino = isValid ? dirNotasValidas : dirNotasErros;
 
-                string newFilePath = _nfseServico.RenomearEMoverNFSePdf(pdfFile, nfseData, dirDestino);
+                string novoCaminhoArquivoPdf = _nfseServico.RenomearEMoverNFSePdf(pdf, nfseData, dirDestino);
 
                 string status = isValid ? "válida" : "inválida";
-                _logger.LogInformation($"NFSe {status}: {Path.GetFileName(newFilePath)}");
+                _logger.LogInformation($"NFSe {status}: {Path.GetFileName(novoCaminhoArquivoPdf)}");
             }
             catch (IOException ioEx)
             {
-                _logger.LogError($"Erro ao acessar arquivo '{Path.GetFileName(pdfFile)}': {ioEx.Message}");
+                _logger.LogError($"Erro ao acessar arquivo '{Path.GetFileName(pdf)}': {ioEx.Message}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Erro ao processar arquivo '{Path.GetFileName(pdfFile)}': {ex.Message}");
+                _logger.LogError($"Erro ao processar arquivo '{Path.GetFileName(pdf)}': {ex.Message}");
             }
         }
     }

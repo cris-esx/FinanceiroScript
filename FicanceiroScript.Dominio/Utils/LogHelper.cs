@@ -16,26 +16,26 @@ public class LogHelper
 
     private void ConfigureLogging()
     {
-        string logDirectory = _diretorioHelper.GetResultDirectory();
+        string diretorioLog = _diretorioHelper.ObterDiretorioResultado();
 
-        if (!Directory.Exists(logDirectory))
+        if (!Directory.Exists(diretorioLog))
         {
-            Directory.CreateDirectory(logDirectory);
+            Directory.CreateDirectory(diretorioLog);
         }
 
-        LogManager.Configuration.Variables["logDirectory"] = logDirectory;
+        LogManager.Configuration.Variables["diretorioLog"] = diretorioLog;
 
-        string logConfigFilePath = Path.Combine(AppContext.BaseDirectory, "NLog.config");
-        Console.WriteLine($"Carregando configuracao NLog de: {logConfigFilePath}");
+        string caminhoArquivoConfigNLog = Path.Combine(AppContext.BaseDirectory, "NLog.config");
+        Console.WriteLine($"Carregando configuracao NLog de: {caminhoArquivoConfigNLog}");
 
-        if (!File.Exists(logConfigFilePath))
+        if (!File.Exists(caminhoArquivoConfigNLog))
         {
             Console.WriteLine("Arquivo de config NLog nao encontrado. Usando a configuração padrão no LogHelper.");
 
             var config = new LoggingConfiguration();
             var fileTarget = new FileTarget("logfile")
             {
-                FileName = Path.Combine(logDirectory, "log.txt"),
+                FileName = Path.Combine(diretorioLog, "log.txt"),
                 Layout = "${longdate} ${level} ${message} ${exception}",
                 KeepFileOpen = true,
                 MaxArchiveFiles = 5
@@ -55,7 +55,7 @@ public class LogHelper
         }
         else
         {
-            LogManager.Setup().LoadConfigurationFromFile(logConfigFilePath);
+            LogManager.Setup().LoadConfigurationFromFile(caminhoArquivoConfigNLog);
         }
 
         _logger = LogManager.GetCurrentClassLogger();

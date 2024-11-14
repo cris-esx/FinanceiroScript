@@ -2,9 +2,9 @@
 {
     public interface IDiretorioHelper
     {
-        string GetAppRootPath();
-        string GetResultDirectory();
-        string GetValidosDirectory();
-        string GetErrosDirectory();
+        string ObterCaminhoRaizAplicacao();
+        string ObterDiretorioResultado();
+        string ObterDiretorioValidos();
+        string ObterDiretorioErros();
     }
 }

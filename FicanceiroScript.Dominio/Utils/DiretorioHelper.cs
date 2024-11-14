@@ -2,23 +2,23 @@
 
 public class DiretorioHelper : IDiretorioHelper
 {
-    private string _appRootPath;
-    private string _dateTimeString;
-    private string _resultDirectory;
+    private string _caminhoRaizAplicacao;
+    private string _dataHoraString;
+    private string _diretorioResultado;
 
     public DiretorioHelper()
     {
-        _appRootPath = @"C:\Users\W111\Downloads\TesteAutomateFinance\";
-        _dateTimeString = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-        _resultDirectory = Path.Combine(_appRootPath, "Resultados", $"Resultado-{_dateTimeString}");
+        _caminhoRaizAplicacao = @"C:\Users\W111\Downloads\TesteAutomateFinance\";
+        _dataHoraString = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+        _diretorioResultado = Path.Combine(_caminhoRaizAplicacao, "Resultados", $"Resultado-{_dataHoraString}");
 
-        Directory.CreateDirectory(GetResultDirectory());
-        Directory.CreateDirectory(GetValidosDirectory());
-        Directory.CreateDirectory(GetErrosDirectory());
+        Directory.CreateDirectory(ObterDiretorioResultado());
+        Directory.CreateDirectory(ObterDiretorioValidos());
+        Directory.CreateDirectory(ObterDiretorioErros());
     }
 
-    public string GetAppRootPath() => _appRootPath;
-    public string GetResultDirectory() => _resultDirectory;
-    public string GetValidosDirectory() => Path.Combine(_resultDirectory, "Validos");
-    public string GetErrosDirectory() => Path.Combine(_resultDirectory, "Erros");
+    public string ObterCaminhoRaizAplicacao() => _caminhoRaizAplicacao;
+    public string ObterDiretorioResultado() => _diretorioResultado;
+    public string ObterDiretorioValidos() => Path.Combine(_diretorioResultado, "Validos");
+    public string ObterDiretorioErros() => Path.Combine(_diretorioResultado, "Erros");
 }
