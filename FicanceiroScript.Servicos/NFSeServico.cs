@@ -20,7 +20,7 @@ namespace FinanceiroScript.Servicos
 
         public string[]? ObterTodasNFSes(string nfsePDFsPath)
         {
-            _logger.LogInformation("Função listar todas as NFSes em PDF");
+            _logger.LogInformation("Função listar todas as NFSes em PDF iniciada.");
 
             if (!Directory.Exists(nfsePDFsPath))
             {
@@ -28,11 +28,12 @@ namespace FinanceiroScript.Servicos
                 return null;
             }
 
+            _logger.LogInformation($"Obtendo pdfs do diretorio '{nfsePDFsPath}'.");
             string[] pdfFiles = Directory.GetFiles(nfsePDFsPath, "*.pdf");
 
             if (pdfFiles.Length == 0)
             {
-                _logger.LogWarning($"Nenhum arquivo PDF encontrado no diretório '{nfsePDFsPath}'.");
+                _logger.LogWarning($"Nenhum arquivo PDF encontrado.");
                 return null;
             }
 
@@ -41,17 +42,18 @@ namespace FinanceiroScript.Servicos
 
         public NFSe ExtrairDadosNFSeDoPdf(Stream pdfStream)
         {
+            _logger.LogInformation("Função extrair dados das NFSes dos PDFs iniciada.");
             var nfseData = new NFSe();
             string pdfText = ObterTextoDoPdfStream(pdfStream);
 
-            ExtractNFSeFields(pdfText, nfseData);
-            ExtractPessoaJuridicaData(pdfText, nfseData.Prestador, "Prestador");
-            ExtractPessoaJuridicaData(pdfText, nfseData.Tomador, "Tomador");
+            ExtrairCamposNFSe(pdfText, nfseData);
+            ExtrairDadosPessoaJuridica(pdfText, nfseData.Prestador, "Prestador");
+            ExtrairDadosPessoaJuridica(pdfText, nfseData.Tomador, "Tomador");
 
             return nfseData;
         }
 
-        private void ExtractNFSeFields(string pdfText, NFSe nfseData)
+        private void ExtrairCamposNFSe(string pdfText, NFSe nfseData)
         {
             var fieldKeys = new List<string>
             {
@@ -62,47 +64,47 @@ namespace FinanceiroScript.Servicos
 
             foreach (var fieldKey in fieldKeys)
             {
-                if (_nfseFieldMappings.TryGetValue(fieldKey, out var fieldConfig))
+                if (_mapeamentoComposNFSe.TryGetValue(fieldKey, out var fieldConfig))
                 {
                     string pattern = fieldConfig["pattern"];
                     string label = fieldConfig["label"];
 
-                    var fieldValue = ExtractFieldFromText(pdfText, "", new List<string> { label }, pattern);
+                    var fieldValue = ExtrairCampoDoTexto(pdfText, "", new List<string> { label }, pattern);
                     nfseData.GetType().GetProperty(fieldKey)?.SetValue(nfseData, fieldValue);
                 }
             }
         }
 
-        private void ExtractPessoaJuridicaData(string pdfText, PessoaJuridica pessoa, string entityPrefix)
+        private void ExtrairDadosPessoaJuridica(string pdfText, PessoaJuridica pessoa, string prefixoPJ)
         {
             var fieldKeys = new List<string> { "Cnpj", "RazaoSocial", "Email", "Endereco", "Municipio", "Cep" };
 
             foreach (var fieldKey in fieldKeys)
             {
-                if (_nfseFieldMappings.TryGetValue(fieldKey, out var fieldConfig))
+                if (_mapeamentoComposNFSe.TryGetValue(fieldKey, out var fieldConfig))
                 {
-                    string pattern = fieldConfig["pattern"];
+                    string padraoValorRegex = fieldConfig["pattern"];
                     string label = fieldConfig["label"];
-                    var fieldValue = ExtractFieldFromText(pdfText, entityPrefix, new List<string> { label }, pattern);
-                    pessoa.GetType().GetProperty(fieldKey)?.SetValue(pessoa, fieldValue);
+                    var valorCampo = ExtrairCampoDoTexto(pdfText, prefixoPJ, new List<string> { label }, padraoValorRegex);
+                    pessoa.GetType().GetProperty(fieldKey)?.SetValue(pessoa, valorCampo);
                 }
             }
         }
 
-        private string? ExtractFieldFromText(string text, string entityPrefix, List<string> labels, string pattern)
+        private string? ExtrairCampoDoTexto(string texto, string prefixoPJ, List<string> labels, string padraoValorRegex)
         {
-            if (!string.IsNullOrEmpty(entityPrefix))
+            if (!string.IsNullOrEmpty(prefixoPJ))
             {
-                entityPrefix = $@"(?:{entityPrefix}[\s\S]*?)";
+                prefixoPJ = $@"(?:{prefixoPJ}[\s\S]*?)";
             }
 
             foreach (var label in labels)
             {
-                var fullPattern = $@"(?i){entityPrefix}(?:{label}\s*[:\-]?\s*)[\s\S]*?{pattern}";
+                var padraoRegexCompleto = $@"(?i){prefixoPJ}(?:{label}\s*[:\-]?\s*)[\s\S]*?{padraoValorRegex}";
 
-                Regex regex = new Regex(fullPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                Regex regex = new Regex(padraoRegexCompleto, RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
-                var match = regex.Match(text);
+                var match = regex.Match(texto);
 
                 if (match.Success)
                 {
@@ -115,45 +117,51 @@ namespace FinanceiroScript.Servicos
 
         private string ObterTextoDoPdfStream(Stream pdfStream)
         {
-            var result = new StringBuilder();
+            _logger.LogInformation("Função obter texto do pdf iniciada.");
+            var resultado = new StringBuilder();
             using var pdfReader = new PdfReader(pdfStream);
             using var pdfDoc = new PdfDocument(pdfReader);
             for (int page = 1; page <= pdfDoc.GetNumberOfPages(); page++)
             {
-                var strategy = new SimpleTextExtractionStrategy();
-                string content = PdfTextExtractor.GetTextFromPage(pdfDoc.GetPage(page), strategy);
-                result.Append(content);
+                var estrategia = new SimpleTextExtractionStrategy();
+                string content = PdfTextExtractor.GetTextFromPage(pdfDoc.GetPage(page), estrategia);
+                resultado.Append(content);
             }
-            return result.ToString();
+            return resultado.ToString();
         }
 
-        public string RenomearEMoverNFSePdf(string filePath, NFSe nfse, string destinationDir)
+        public string RenomearEMoverNFSePdf(string caminhoArquivo, NFSe nfse, string dirDestino)
         {
-            string newFileName = $"error_" + Path.GetFileName(filePath);
+            _logger.LogInformation("Função renomear arquivo iniciada.");
+            string novoNomeArquivo = $"error_" + Path.GetFileName(caminhoArquivo);
 
             if (!string.IsNullOrEmpty(nfse?.Numero) && !string.IsNullOrEmpty(nfse?.Prestador?.RazaoSocial))
             {
-                string formattedNumero = nfse.Numero.PadLeft(4, '0');
+                string numeroFormatado = nfse.Numero.PadLeft(4, '0');
 
-                string formattedRazaoSocial = Regex.Replace(nfse.Prestador.RazaoSocial, @"[^a-zA-Z\s]", "");
-                formattedRazaoSocial = Regex.Replace(formattedRazaoSocial.Trim().ToUpper(), @"\s+", "_");
+                string razaoSocialFormatada = Regex.Replace(nfse.Prestador.RazaoSocial, @"[^a-zA-Z\s]", "");
+                razaoSocialFormatada = Regex.Replace(razaoSocialFormatada.Trim().ToUpper(), @"\s+", "_");
 
-                newFileName = $"{formattedNumero}_{formattedRazaoSocial}.pdf";
+                novoNomeArquivo = $"{numeroFormatado}_{razaoSocialFormatada}.pdf";
             }
             else
             {
-                Console.WriteLine("Warning: 'Numero' ou 'RazaoSocial' é nulo ou vazio. Usando o nome original do arquivo.");
+                _logger.LogError("'Numero' ou 'RazaoSocial' é nulo ou vazio.");
             }
 
-            string copyFilePath = Path.Combine(Path.GetDirectoryName(filePath), newFileName);
-            File.Copy(filePath, copyFilePath, overwrite: true);
+            _logger.LogInformation($"Arquivo renomeado.");
 
-            string newFilePath = Path.Combine(destinationDir, Path.GetFileName(copyFilePath));
-            File.Move(copyFilePath, newFilePath);
-            return newFilePath;
+            string caminhoArquivoCopia = Path.Combine(Path.GetDirectoryName(caminhoArquivo), novoNomeArquivo);
+            File.Copy(caminhoArquivo, caminhoArquivoCopia, overwrite: true);
+
+            string novoCaminhoArquivo = Path.Combine(dirDestino, Path.GetFileName(caminhoArquivoCopia));
+            File.Move(caminhoArquivoCopia, novoCaminhoArquivo);
+
+            _logger.LogInformation($"Arquivo movido.");
+            return novoCaminhoArquivo;
         }
 
-        private readonly Dictionary<string, Dictionary<string, string>> _nfseFieldMappings = new()
+        private readonly Dictionary<string, Dictionary<string, string>> _mapeamentoComposNFSe = new()
         {
             { "ChaveAcesso", new Dictionary<string, string>
                 {
