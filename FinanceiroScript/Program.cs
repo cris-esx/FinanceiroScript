@@ -3,6 +3,9 @@ using FinanceiroScript.Dominio.Interfaces.Servicos;
 using FinanceiroScript.Servicos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using NLog;
+using NLog.Extensions.Logging;
 
 namespace FinanceiroScript
 {
@@ -18,13 +21,30 @@ namespace FinanceiroScript
                     services.AddScoped<IDiretorioHelper, DiretorioHelper>();
                     services.AddScoped<LogHelper>();
                 })
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddNLog();
+                })
                 .Build();
 
             var directoryHelper = host.Services.GetRequiredService<IDiretorioHelper>();
             var logHelper = host.Services.GetRequiredService<LogHelper>();
-            logHelper.LogMessage("Program iniciado.");
-            var processorService = host.Services.GetRequiredService<INFSeVerificarValidadeNotasServico>();
-            processorService.VerificarValidadeNotasFiscais();
+            logHelper.LogMessage("Programa iniciado.");
+
+            try
+            {
+                var validadeNotasServico = host.Services.GetRequiredService<INFSeVerificarValidadeNotasServico>();
+                validadeNotasServico.VerificarValidadeNotasFiscais();
+            }
+            catch (Exception ex)
+            {
+                logHelper.LogError("Ocorreu um erro", ex);
+            }
+            finally
+            {
+                LogManager.Shutdown();
+            }
         }
     }
 }
