@@ -3,23 +3,41 @@ using NPOI.XSSF.UserModel;
 using NPOI.HSSF.UserModel;
 using System.Globalization;
 using FinanceiroScript.Dominio;
+using Microsoft.Extensions.Logging;
+using FicanceiroScript.Dominio.Interfaces.Helpers;
 
-public class ExcelHelper
+public class ExcelHelper : IExcelHelper
 {
+    private readonly ILogger<ExcelHelper> _logger;
 
-    public static bool IsNFSeValid(NFSe nfseData, string excelFilePath)
+    public ExcelHelper(ILogger<ExcelHelper> logger)
     {
-        if (nfseData == null) return false;
-        if (string.IsNullOrEmpty(excelFilePath)) return false;
+        _logger = logger;
+    }
+
+    public bool VerificarSeDadosNFSeBatemComExcel(NFSe nfseData, string caminhoArquivoExcel)
+    {
+        if (nfseData == null)
+        {
+            _logger.LogError("Dados NFSe não pode ser nulo");
+            return false;
+        }
+
+        if (string.IsNullOrEmpty(caminhoArquivoExcel))
+        {
+            _logger.LogError("Caminho do arquivo excel não pode ser nulo ou vazio");
+            return false;
+        };
 
         try
         {
             if (string.IsNullOrEmpty(nfseData.Prestador.Cnpj) || string.IsNullOrEmpty(nfseData.DataCompetencia))
             {
-                throw new ArgumentException("CNPJ e Competência são necessários para a busca.");
+                _logger.LogError("CNPJ e Competência são necessários para a busca.");
+                return false;
             }
 
-            IWorkbook workbook = LoadExcelFile(excelFilePath);
+            IWorkbook workbook = CarregarArquivoExcel(caminhoArquivoExcel);
 
             var sheet = workbook.GetSheetAt(0) ?? throw new Exception("Não foi possível acessar a planilha no arquivo Excel.");
 
@@ -36,62 +54,100 @@ public class ExcelHelper
                 string? competencia = row.GetCell(competenciaColumnIndex)?.ToString()?.Trim();
                 string? salario = FormatarValorEmReais(row.GetCell(salarioColumnIndex)?.ToString());
 
-                if (IsMatch(cnpj: cnpj, competencia: competencia, salario: salario, nfseData: nfseData))
+                if (CompararDadosNFSeComDadosExcel(cnpj: cnpj, competencia: competencia, salario: salario, nfseData: nfseData))
                 {
-                    Console.WriteLine("Tudo certo. Todos os dados necessários foram validados.");
+                    _logger.LogInformation("Validação bem-sucedida: os dados NFSe correspondem aos dados da planilha.");
                     return true;
                 }
             }
-            Console.WriteLine("Dados não encontrados no Excel para o CNPJ e Competência especificados.");
+
+            _logger.LogWarning("Dados não encontrados no Excel para o CNPJ e Competência especificados.");
             return false;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro ao validar NFSe: {ex.Message}");
+            _logger.LogError(ex, $"Erro ao validar NFSe no arquivo Excel: {caminhoArquivoExcel}");
             return false;
         }
     }
 
-    private static IWorkbook LoadExcelFile(string excelFilePath)
+    private IWorkbook CarregarArquivoExcel(string caminhoArquivoExcel)
     {
-        using (var fileStream = new FileStream(excelFilePath, FileMode.Open, FileAccess.Read))
+        try
         {
-            return excelFilePath.EndsWith(".xls") ? (IWorkbook)new HSSFWorkbook(fileStream) : new XSSFWorkbook(fileStream);
+            using (var fileStream = new FileStream(caminhoArquivoExcel, FileMode.Open, FileAccess.Read))
+            {
+                _logger.LogInformation($"Carregando arquivo Excel: {caminhoArquivoExcel}");
+
+                if (caminhoArquivoExcel.EndsWith(".xls"))
+                {
+                    return new HSSFWorkbook(fileStream);
+                }
+                else if (caminhoArquivoExcel.EndsWith(".xlsx"))
+                {
+                    return new XSSFWorkbook(fileStream);
+                }
+                else
+                {
+                    _logger.LogError("Formato de arquivo não suportado. Use um arquivo .xls ou .xlsx.");
+                    throw new ArgumentException("Formato de arquivo não suportado. Use um arquivo .xls ou .xlsx.");
+                }
+            }
+        }
+        catch (FileNotFoundException ex)
+        {
+            _logger.LogError(ex, $"Arquivo Excel não encontrado: {caminhoArquivoExcel}");
+            throw;
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, $"Erro ao acessar o arquivo Excel: {caminhoArquivoExcel}");
+            throw;
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogError(ex, $"Erro no formato do arquivo Excel: {caminhoArquivoExcel}");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Erro inesperado ao carregar o arquivo Excel: {caminhoArquivoExcel}");
+            throw;
         }
     }
 
-    private static bool IsMatch(string cnpj, string competencia, string salario, NFSe nfseData)
+    private bool CompararDadosNFSeComDadosExcel(string cnpj, string competencia, string salario, NFSe nfseData)
     {
         string? valorServicoFormatado = FormatarValorEmReais(nfseData.ValorServico);
         string? dataCompetenciaFormatada = FormatarDataCompetencia(nfseData.DataCompetencia);
 
-        Console.WriteLine($"CNPJ no Excel: '{cnpj}', CNPJ Procurado: '{nfseData.Prestador.Cnpj}'");
-        Console.WriteLine($"Competência no Excel: '{competencia}', Competência Procurada: '{dataCompetenciaFormatada}'");
-        Console.WriteLine($"Salário no Excel: '{salario}', Salário Procurado: '{valorServicoFormatado}'");
+        _logger.LogInformation($"CNPJ no Excel: '{cnpj}', CNPJ Procurado: '{nfseData.Prestador.Cnpj}'");
+        _logger.LogInformation($"Competência no Excel: '{competencia}', Competência Procurada: '{dataCompetenciaFormatada}'");
+        _logger.LogInformation($"Salário no Excel: '{salario}', Salário Procurado: '{valorServicoFormatado}'");
 
         return cnpj?.Trim() == nfseData.Prestador.Cnpj.Trim() &&
                competencia?.Trim().Equals(dataCompetenciaFormatada, StringComparison.OrdinalIgnoreCase) == true &&
                salario == valorServicoFormatado;
     }
 
-    private static int ObterIndexDaColunaPorTitulo(ISheet sheet, string title)
+    private static int ObterIndexDaColunaPorTitulo(ISheet folhaPlanilha, string titulo)
     {
-        IRow headerRow = sheet.GetRow(0);
-        if (headerRow == null)
+        IRow cabecalhoPlanilha = folhaPlanilha.GetRow(0);
+        if (cabecalhoPlanilha == null)
         {
             throw new Exception("Cabeçalho não encontrado na planilha.");
         }
 
-        for (int i = 0; i < headerRow.LastCellNum; i++)
+        for (int i = 0; i < cabecalhoPlanilha.LastCellNum; i++)
         {
-            var cell = headerRow.GetCell(i);
-            if (cell != null && cell.StringCellValue.Equals(title, StringComparison.OrdinalIgnoreCase))
+            var celula = cabecalhoPlanilha.GetCell(i);
+            if (celula != null && celula.StringCellValue.Equals(titulo, StringComparison.OrdinalIgnoreCase))
             {
                 return i;
             }
         }
 
-        throw new Exception($"Título '{title}' não encontrado na planilha.");
+        throw new Exception($"Título '{titulo}' não encontrado na planilha.");
     }
 
     private static string FormatarDataCompetencia(string dataCompetencia)
